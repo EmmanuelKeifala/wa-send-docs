@@ -1,0 +1,92 @@
+---
+title: "Authentication"
+description: "Understand the two authentication models in wa-send: user sessions and server-side API keys."
+---
+
+wa-send uses two complementary authentication models:
+
+- JWT bearer tokens for signed-in dashboard users
+- API keys for server-to-server message submission
+
+## User sessions
+
+Use session-based auth when managing account-scoped resources such as templates, API keys, or profile settings.
+
+### Create an account
+
+```bash
+curl -X POST http://localhost:3001/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dev@example.com","password":"strong-password"}'
+```
+
+### Sign in
+
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dev@example.com","password":"strong-password"}'
+```
+
+Successful authentication returns a user object and an access token:
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "dev@example.com",
+    "created_at": "2026-03-28T12:00:00.000Z"
+  },
+  "session": {
+    "access_token": "jwt-token"
+  }
+}
+```
+
+Send that token on subsequent requests:
+
+```http
+Authorization: Bearer <jwt>
+```
+
+## API keys
+
+API keys are the preferred choice for production applications, workers, and backend jobs.
+
+Create a key in the dashboard or through the API:
+
+```bash
+curl -X POST http://localhost:3001/api/keys \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Production Worker","environment":"live"}'
+```
+
+The full key is returned once at creation time. Store it immediately.
+
+Use the key like this:
+
+```http
+x-api-key: waotp_live_xxx
+```
+
+## Test and live environments
+
+Each key belongs to one environment:
+
+- `test`
+- `live`
+
+This lets you separate development traffic from production traffic without changing your integration model.
+
+## Which one should you use?
+
+- use JWTs for account-scoped actions such as templates, profile updates, and key management
+- use API keys for sending messages from your own systems
+
+## Security defaults
+
+- API keys are stored as SHA-256 hashes
+- JWT sessions expire after `7d`
+- message submission accepts either a JWT or an API key
+- newly created API keys are only shown once

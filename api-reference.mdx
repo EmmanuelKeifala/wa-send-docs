@@ -1,0 +1,77 @@
+---
+title: "API Reference"
+description: "Interactive REST reference for wa-send, powered by OpenAPI and live API playground support."
+---
+
+The API reference lives in its own top-level tab and is backed by OpenAPI, which means developers can inspect schemas, review auth requirements, and try requests live from the docs.
+
+wa-send is designed to feel familiar if you have used modern API products before: clear resource-oriented endpoints, straightforward auth, predictable error shapes, and examples you can adapt quickly.
+
+## Use the playground
+
+- make sure the API is reachable at `http://localhost:3001`
+- open the `API Reference` tab
+- enter either a bearer token or an API key in the auth controls
+- send live requests from the endpoint page itself
+
+## Base URL
+
+```text
+http://localhost:3001
+```
+
+## What is covered
+
+- account signup, login, logout, and session verification
+- direct and template-based message submission
+- template CRUD
+- API key management
+- profile read and update
+- service health
+
+## Authentication models
+
+- `Authorization: Bearer <jwt>` for account-scoped routes
+- `x-api-key: <api-key>` for server-side message submission
+
+## Example request style
+
+Most teams start with a direct request like this:
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+14155550123",
+    "message": "Your verification code is 483920. It expires in 5 minutes."
+  }'
+```
+
+Then move to templates for more reusable workflows:
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+14155550123",
+    "templateId": "template_123",
+    "templateArgs": {
+      "customer_name": "Amina",
+      "order_id": "48291"
+    }
+  }'
+```
+
+## Common error shape
+
+```json
+{
+  "error": "Human-readable message"
+}
+```
+
+## Prefer the generated endpoint pages
+
+This page is the overview. For request bodies, responses, auth, and live testing, use the generated endpoint pages in the `API Reference` tab sidebar.

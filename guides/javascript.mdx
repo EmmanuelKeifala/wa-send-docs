@@ -1,0 +1,110 @@
+---
+title: "JavaScript"
+description: "Integrate wa-send from Node.js or modern JavaScript runtimes."
+---
+
+This guide shows how to call wa-send from Node.js or any JavaScript runtime with `fetch` support.
+
+## What you will need
+
+- your wa-send API key
+- your API base URL
+- a destination phone number in E.164 format
+
+## Set up your client
+
+```js
+const API_BASE_URL = process.env.WASEND_BASE_URL || 'http://localhost:3001'
+const API_KEY = process.env.WASEND_API_KEY
+
+async function sendRequest(path, body) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+    },
+    body: JSON.stringify(body),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Request failed')
+  }
+
+  return data
+}
+```
+
+## Send a direct message
+
+```js
+async function sendOtp() {
+  const result = await sendRequest('/api/messages', {
+    to: '+14155550123',
+    message: 'Your verification code is 483920. It expires in 5 minutes.',
+  })
+
+  console.log(result)
+}
+
+sendOtp().catch(console.error)
+```
+
+## Send with a template
+
+```js
+async function sendTemplateMessage() {
+  const result = await sendRequest('/api/messages', {
+    to: '+14155550123',
+    templateId: 'template_123',
+    templateArgs: {
+      customer_name: 'Amina',
+      order_id: '48291',
+    },
+  })
+
+  console.log(result)
+}
+
+sendTemplateMessage().catch(console.error)
+```
+
+## Create a template
+
+Template management uses a bearer token instead of an API key.
+
+```js
+async function createTemplate(jwt) {
+  const response = await fetch(`${API_BASE_URL}/api/templates`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({
+      name: 'Order Update',
+      template_type: 'custom',
+      message_template: 'Hi {{customer_name}}, your order {{order_id}} is on the way.',
+      otp_length: 6,
+      expires_in: 300,
+    }),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Could not create template')
+  }
+
+  return data
+}
+```
+
+## Production tips
+
+- keep `WASEND_API_KEY` in environment variables, not source control
+- retry only when failures are transient
+- use templates for repeated notification flows
+- separate `test` and `live` keys by environment

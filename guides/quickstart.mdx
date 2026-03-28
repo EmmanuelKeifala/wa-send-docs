@@ -1,0 +1,76 @@
+---
+title: "Quickstart"
+description: "Create credentials, authenticate, and send your first WhatsApp message with wa-send."
+---
+
+This guide walks through the fastest path to a working integration.
+
+## Before you begin
+
+You will need:
+
+- a wa-send account
+- an API key
+- a phone number in E.164 format
+
+## 1. Create an account
+
+Create an account in wa-send and sign in.
+
+Once signed in, create an API key for your environment.
+
+## 2. Send your first message
+
+Use your API key to make a request:
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+12345678901",
+    "message": "Your verification code is 483920"
+  }'
+```
+
+If the request is accepted, you will receive:
+
+```json
+{
+  "id": "queue-message-id",
+  "status": "queued",
+  "timestamp": "2026-03-28T12:00:00.000Z"
+}
+```
+
+## 3. Use a template
+
+Once you have a template ID, you can send dynamic content without rebuilding message copy on every request:
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+12345678901",
+    "templateId": "template-uuid",
+    "templateArgs": {
+      "otp": "483920",
+      "expires": "5"
+    }
+  }'
+```
+
+## 4. Explore interactively
+
+Use the `API Reference` tab to:
+
+- inspect request and response schemas
+- test endpoints live from the docs
+- try bearer token and API key auth flows
+
+## Next steps
+
+- continue with [Authentication](./authentication)
+- learn how message submission works in [Messaging](./messages)
+- review the full [API Reference](../api-reference)

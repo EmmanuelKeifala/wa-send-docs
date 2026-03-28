@@ -1,0 +1,118 @@
+---
+title: "Messaging"
+description: "Send direct or template-based WhatsApp messages through wa-send."
+---
+
+wa-send accepts direct and template-based message requests through a single API.
+
+For most teams, the integration model is straightforward: authenticate once, submit payloads, and let the platform handle delivery.
+
+## Send a direct message
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+12345678901",
+    "message": "Your verification code is 483920"
+  }'
+```
+
+Successful requests return `202 Accepted`:
+
+```json
+{
+  "id": "queue-message-id",
+  "status": "queued",
+  "timestamp": "2026-03-28T12:00:00.000Z"
+}
+```
+
+## Send with a template
+
+Templates let you centralize message copy and inject dynamic values at request time.
+
+```bash
+curl -X POST http://localhost:3001/api/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+12345678901",
+    "templateId": "template-uuid",
+    "templateArgs": {
+      "otp": "483920",
+      "expires": "5"
+    }
+  }'
+```
+
+If the stored template contains:
+
+```text
+Your verification code is {{otp}}. Valid for {{expires}} minutes.
+```
+
+wa-send will resolve it into the final message before queueing delivery.
+
+## Validation rules
+
+- `to` must be a valid E.164-like number
+- provide either `message` or `templateId`
+- do not provide both in the same request
+- `templateArgs` is required when using `templateId`
+
+## Managing templates
+
+Templates are managed over authenticated endpoints.
+
+### Create a template
+
+```bash
+curl -X POST http://localhost:3001/api/templates \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Default Verification",
+    "template_type": "verification",
+    "message_template": "Your verification code is {{otp}}. Valid for {{expires}} minutes.",
+    "otp_length": 6,
+    "expires_in": 300
+  }'
+```
+
+### List templates
+
+```bash
+curl http://localhost:3001/api/templates \
+  -H "Authorization: Bearer <jwt>"
+```
+
+### Update a template
+
+```bash
+curl -X PUT http://localhost:3001/api/templates/<template-id> \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Default Verification",
+    "template_type": "verification",
+    "message_template": "Your login code is {{otp}}",
+    "otp_length": 6,
+    "expires_in": 300,
+    "is_default": true
+  }'
+```
+
+### Delete a template
+
+```bash
+curl -X DELETE http://localhost:3001/api/templates/<template-id> \
+  -H "Authorization: Bearer <jwt>"
+```
+
+## Delivery model
+
+wa-send acknowledges accepted messages quickly and processes delivery asynchronously.
+
+For a field-by-field API breakdown, see the [API Reference](../api-reference).

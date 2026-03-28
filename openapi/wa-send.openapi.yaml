@@ -1,0 +1,1090 @@
+openapi: 3.1.0
+info:
+  title: wa-send API
+  version: 1.0.0
+  description: |
+    Public API for authenticating users, managing templates and API keys,
+    updating profiles, and sending transactional WhatsApp messages.
+servers:
+  - url: http://localhost:3001
+    description: Local development
+tags:
+  - name: Health
+    description: Service health and readiness
+  - name: Auth
+    description: User signup, login, logout, and session verification
+  - name: Messages
+    description: Send direct and template-based WhatsApp messages
+  - name: Templates
+    description: Manage reusable WhatsApp templates
+  - name: API Keys
+    description: Create and revoke API keys for server-side integrations
+  - name: Profiles
+    description: Read and update the current user profile
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-default: your-jwt-token
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      x-default: waotp_test_your_api_key
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid email or password
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: OK
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-28T12:00:00.000Z
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+      required: [id, email, created_at]
+    Session:
+      type: object
+      properties:
+        access_token:
+          type: string
+      required: [access_token]
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          $ref: '#/components/schemas/Session'
+      required: [user, session]
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [email, password]
+      examples:
+        basic_signup:
+          value:
+            email: dev@example.com
+            password: strong-password
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+      examples:
+        standard_login:
+          value:
+            email: dev@example.com
+            password: strong-password
+    LogoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      required: [success]
+    MessageRequest:
+      type: object
+      properties:
+        to:
+          type: string
+          pattern: ^\+?[1-9]\d{1,14}$
+          example: "+14155550123"
+        message:
+          type: string
+          example: Your verification code is 483920. It expires in 5 minutes.
+        templateId:
+          type: string
+          example: template_123
+        templateArgs:
+          type: object
+          additionalProperties: true
+          example:
+            customer_name: "Amina"
+            order_id: "48291"
+      required: [to]
+      oneOf:
+        - required: [to, message]
+        - required: [to, templateId, templateArgs]
+      examples:
+        otp_message:
+          value:
+            to: "+14155550123"
+            message: Your verification code is 483920. It expires in 5 minutes.
+        order_update:
+          value:
+            to: "+14155550123"
+            templateId: template_order_update
+            templateArgs:
+              customer_name: Amina
+              order_id: "48291"
+        security_alert:
+          value:
+            to: "+14155550123"
+            message: We detected a new sign-in to your account. If this was not you, reset your password now.
+    QueuedMessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: msg_01htw4m9q4x7d3v8n6k2r5p1a
+        status:
+          type: string
+          example: queued
+        timestamp:
+          type: string
+          format: date-time
+      required: [id, status, timestamp]
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        template_type:
+          type: string
+          enum: [otp, verification, custom]
+        message_template:
+          type: string
+        otp_length:
+          type: integer
+          minimum: 4
+          maximum: 8
+        expires_in:
+          type: integer
+          minimum: 60
+          maximum: 3600
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        [id, user_id, name, template_type, message_template, otp_length, expires_in, is_default, created_at]
+    TemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        template_type:
+          type: string
+          enum: [otp, verification, custom]
+        message_template:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        otp_length:
+          type: integer
+          minimum: 4
+          maximum: 8
+          default: 6
+        expires_in:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 300
+        is_default:
+          type: boolean
+          default: false
+      required: [name, template_type, message_template]
+      examples:
+        verification_template:
+          value:
+            name: Verification Code
+            template_type: verification
+            message_template: Your verification code is {{otp}}. It expires in {{expires}} minutes.
+            otp_length: 6
+            expires_in: 300
+            is_default: true
+        order_template:
+          value:
+            name: Order Update
+            template_type: custom
+            message_template: Hi {{customer_name}}, your order {{order_id}} is now out for delivery.
+            otp_length: 6
+            expires_in: 300
+            is_default: false
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key_prefix:
+          type: string
+          example: waotp_live_a1b2...
+        environment:
+          type: string
+          enum: [test, live]
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        is_active:
+          type: boolean
+      required: [id, user_id, name, key_prefix, environment, created_at, is_active]
+    ApiKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        environment:
+          type: string
+          enum: [test, live]
+      required: [name, environment]
+      examples:
+        test_key:
+          value:
+            name: Local Development
+            environment: test
+        production_key:
+          value:
+            name: Production Worker
+            environment: live
+    ApiKeyCreateResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          properties:
+            full_key:
+              type: string
+              example: waotp_live_7f5c2d1b9e0a4c3d8f6b1a2c5e7d9f0a
+          required: [full_key]
+    Profile:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+          example: Ada Lovelace
+        company_name:
+          type: string
+          nullable: true
+          example: Analytical Engines
+        email:
+          type: string
+          format: email
+      required: [email]
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          example: Ada Lovelace
+        company_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          example: Analytical Engines
+      examples:
+        basic_profile:
+          value:
+            display_name: Ada Lovelace
+            company_name: Analytical Engines
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check API health
+      description: Returns the current health status of the wa-send API.
+      x-mint:
+        metadata:
+          title: Health check
+        content: |
+          This page covers the simplest endpoint in the API: a health check for confirming that wa-send is reachable.
+
+          Use it in local development, deployment verification, uptime checks, and smoke tests before sending production traffic.
+
+          ## When to use this endpoint
+
+          Use this endpoint before running integration tests, after deployment, or when diagnosing connectivity issues.
+
+          ## Common patterns
+
+          - readiness checks in deployment pipelines
+          - lightweight uptime monitoring
+          - local environment smoke tests
+      responses:
+        '200':
+          description: Health response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Create an account
+      description: Register a new wa-send user and return a JWT session.
+      x-mint:
+        metadata:
+          title: Create an account
+        content: |
+          This page explains how to create a wa-send account.
+
+          Signup is the first step for teams that need to issue API keys, manage reusable templates, and configure account-scoped resources.
+
+          ## When to use this endpoint
+
+          Use signup when creating a new developer or workspace owner account.
+
+          ## Common patterns
+
+          - first-time onboarding flows
+          - self-serve product sign-up
+          - developer account creation before generating API keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            examples:
+              developer_signup:
+                summary: Create a new developer account
+                value:
+                  email: dev@example.com
+                  password: strong-password
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Duplicate email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      description: Authenticate an existing user and return a JWT session.
+      x-mint:
+        metadata:
+          title: Sign in
+        content: |
+          This page explains how to exchange account credentials for a bearer token.
+
+          Most teams use the returned JWT for account management, then create API keys for application and server traffic.
+
+          ## When to use this endpoint
+
+          Use login when you need a bearer token for account-scoped actions like creating templates or issuing API keys.
+
+          ## Common patterns
+
+          - dashboard sign-in flows
+          - settings or account management sessions
+          - token retrieval before calling account-scoped routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              account_login:
+                summary: Sign in with email and password
+                value:
+                  email: dev@example.com
+                  password: strong-password
+      responses:
+        '200':
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      description: End the current authenticated session on the client.
+      x-mint:
+        metadata:
+          title: Sign out
+        content: |
+          This page covers how to end a signed-in session.
+
+          Logout is mainly useful for browser-based or account-management clients that want an explicit session end point.
+
+          ## When to use this endpoint
+
+          Use logout when a signed-in user explicitly ends a session.
+
+          ## Common patterns
+
+          - sign-out buttons in account UIs
+          - ending authenticated sessions in admin tools
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/auth/session:
+    get:
+      tags: [Auth]
+      summary: Verify session
+      description: Validate a JWT and return the current user session.
+      x-mint:
+        metadata:
+          title: Verify session
+        content: |
+          This page explains how to verify that a bearer token is still valid.
+
+          Use session verification before loading account-scoped resources such as templates, keys, or profile information.
+
+          ## When to use this endpoint
+
+          Use this endpoint when your client needs to restore or validate a signed-in session.
+
+          ## Common patterns
+
+          - app boot session restoration
+          - protected settings pages
+          - token validation before showing account data
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Session is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/messages:
+    post:
+      tags: [Messages]
+      summary: Send a message
+      description: Submit a direct or template-based WhatsApp message.
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      x-mint:
+        metadata:
+          title: Send a message
+        content: |
+          This page covers the core sending endpoint in wa-send.
+
+          Use it for both one-off notifications and reusable template-driven flows. A successful response confirms that wa-send has accepted the request.
+
+          ## When to use this endpoint
+
+          Use this endpoint whenever your application needs to send a transactional WhatsApp message.
+
+          ## Common patterns
+
+          - OTP and verification flows
+          - order and delivery updates
+          - security alerts and account notifications
+          - reminder and re-engagement messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+            examples:
+              otp_message:
+                summary: Send a verification code
+                value:
+                  to: "+14155550123"
+                  message: Your verification code is 483920. It expires in 5 minutes.
+              order_update:
+                summary: Send a template-based order update
+                value:
+                  to: "+14155550123"
+                  templateId: template_order_update
+                  templateArgs:
+                    customer_name: Amina
+                    order_id: "48291"
+              security_alert:
+                summary: Send an account security alert
+                value:
+                  to: "+14155550123"
+                  message: We detected a new sign-in to your account. If this was not you, reset your password now.
+      responses:
+        '202':
+          description: Message accepted for delivery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedMessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/templates:
+    get:
+      tags: [Templates]
+      summary: List templates
+      description: Return all templates created by the current user.
+      x-mint:
+        metadata:
+          title: List templates
+        content: |
+          This page explains how to retrieve the templates available in your account.
+
+          Listing templates is useful when building internal tooling, template pickers, or account settings pages.
+
+          ## When to use this endpoint
+
+          Use this endpoint when your application needs to show or select from existing templates.
+
+          ## Common patterns
+
+          - template picker UIs
+          - internal admin dashboards
+          - synchronization of account-level messaging content
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Templates for the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [Templates]
+      summary: Create a template
+      description: Create a reusable WhatsApp message template.
+      x-mint:
+        metadata:
+          title: Create a template
+        content: |
+          This page explains how to create reusable message templates.
+
+          Templates are ideal for repeated transactional flows that need dynamic placeholders such as names, verification codes, order IDs, and time windows.
+
+          ## When to use this endpoint
+
+          Use this endpoint when repeated messaging flows should be standardized instead of assembled inline in application code.
+
+          ## Common patterns
+
+          - verification templates
+          - order and delivery notifications
+          - billing, reminder, and recovery messages
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateRequest'
+            examples:
+              verification_template:
+                summary: Create a verification template
+                value:
+                  name: Verification Code
+                  template_type: verification
+                  message_template: Your verification code is {{otp}}. It expires in {{expires}} minutes.
+                  otp_length: 6
+                  expires_in: 300
+                  is_default: true
+              order_template:
+                summary: Create an order update template
+                value:
+                  name: Order Update
+                  template_type: custom
+                  message_template: Hi {{customer_name}}, your order {{order_id}} is now out for delivery.
+                  otp_length: 6
+                  expires_in: 300
+                  is_default: false
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/templates/{id}:
+    put:
+      tags: [Templates]
+      summary: Update a template
+      description: Update a template owned by the current user.
+      x-mint:
+        metadata:
+          title: Update a template
+        content: |
+          This page covers how to update an existing template.
+
+          Use updates to refine copy, change defaults, or keep messaging consistent across evolving product flows.
+
+          ## When to use this endpoint
+
+          Use this endpoint when an existing template needs to be revised without changing how your application references it.
+
+          ## Common patterns
+
+          - copy updates for compliance or clarity
+          - placeholder changes for new product fields
+          - setting or changing a default template
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateRequest'
+            examples:
+              updated_verification_template:
+                summary: Update wording for a verification flow
+                value:
+                  name: Verification Code
+                  template_type: verification
+                  message_template: Your login code is {{otp}}. It expires in {{expires}} minutes.
+                  otp_length: 6
+                  expires_in: 300
+                  is_default: true
+      responses:
+        '200':
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Templates]
+      summary: Delete a template
+      description: Delete a template owned by the current user.
+      x-mint:
+        metadata:
+          title: Delete a template
+        content: |
+          This page explains how to permanently remove a template from your account.
+
+          Delete templates that are no longer used so your workspace stays clean and easier to manage.
+
+          ## When to use this endpoint
+
+          Use this endpoint when a template should no longer be available in your account.
+
+          ## Common patterns
+
+          - retiring old notification flows
+          - removing duplicate templates
+          - cleaning up test data before launch
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/keys:
+    get:
+      tags: [API Keys]
+      summary: List API keys
+      description: Return the API keys owned by the current user.
+      x-mint:
+        metadata:
+          title: List API keys
+        content: |
+          This page explains how to retrieve the API keys in your account.
+
+          Use it to review active credentials before rotating, revoking, or auditing application access.
+
+          ## When to use this endpoint
+
+          Use this endpoint when you need visibility into the credentials currently issued for your account.
+
+          ## Common patterns
+
+          - access reviews
+          - credential inventory pages
+          - pre-rotation audits
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: API keys for the current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [API Keys]
+      summary: Create an API key
+      description: Create a new test or live API key.
+      x-mint:
+        metadata:
+          title: Create an API key
+        content: |
+          This page covers how to create a new API key for your account.
+
+          Start with a `test` key while building, then create a `live` key when you are ready to launch. The full key is only returned once, so store it securely.
+
+          ## When to use this endpoint
+
+          Use this endpoint whenever a new application, worker, or environment needs its own credential.
+
+          ## Common patterns
+
+          - creating a local development key
+          - issuing production credentials for a backend worker
+          - separating staging and live environments
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyRequest'
+            examples:
+              local_development:
+                summary: Create a test key for development
+                value:
+                  name: Local Development
+                  environment: test
+              production_worker:
+                summary: Create a live key for production traffic
+                value:
+                  name: Production Worker
+                  environment: live
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreateResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/keys/{id}:
+    delete:
+      tags: [API Keys]
+      summary: Delete an API key
+      description: Revoke an API key owned by the current user.
+      x-mint:
+        metadata:
+          title: Delete an API key
+        content: |
+          This page explains how to revoke an API key.
+
+          Delete keys that are no longer trusted, no longer used, or being replaced as part of a credential rotation workflow.
+
+          ## When to use this endpoint
+
+          Use this endpoint when a credential should no longer be allowed to send traffic.
+
+          ## Common patterns
+
+          - emergency credential revocation
+          - key rotation
+          - removing old environment credentials
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: API key deleted
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/profiles:
+    get:
+      tags: [Profiles]
+      summary: Get profile
+      description: Return the current user's profile.
+      x-mint:
+        metadata:
+          title: Get profile
+        content: |
+          This page covers how to retrieve the current account profile.
+
+          Use it to populate account settings, workspace metadata, or developer-facing account pages.
+
+          ## When to use this endpoint
+
+          Use this endpoint when your UI or internal tooling needs the current account identity and metadata.
+
+          ## Common patterns
+
+          - account settings pages
+          - workspace headers and metadata panels
+          - authenticated profile lookups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags: [Profiles]
+      summary: Update profile
+      description: Update the current user's profile details.
+      x-mint:
+        metadata:
+          title: Update profile
+        content: |
+          This page explains how to update account profile details.
+
+          Keep profile information current so your workspace metadata and account-management experience stay accurate.
+
+          ## When to use this endpoint
+
+          Use this endpoint when account-level metadata such as display name or company name changes.
+
+          ## Common patterns
+
+          - account settings updates
+          - onboarding profile completion
+          - workspace metadata maintenance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+            examples:
+              workspace_profile:
+                summary: Update account metadata
+                value:
+                  display_name: Ada Lovelace
+                  company_name: Analytical Engines
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

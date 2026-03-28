@@ -1,0 +1,108 @@
+---
+title: "Python"
+description: "Integrate wa-send from Python services, workers, and backends."
+---
+
+This guide shows how to call wa-send from Python using the `requests` library.
+
+## Install requests
+
+```bash
+pip install requests
+```
+
+## Configure your client
+
+```python
+import os
+import requests
+
+API_BASE_URL = os.getenv("WASEND_BASE_URL", "http://localhost:3001")
+API_KEY = os.getenv("WASEND_API_KEY")
+
+
+def send_request(path, payload):
+    response = requests.post(
+        f"{API_BASE_URL}{path}",
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    data = response.json()
+
+    if not response.ok:
+        raise RuntimeError(data.get("error", "Request failed"))
+
+    return data
+```
+
+## Send a direct message
+
+```python
+result = send_request(
+    "/api/messages",
+    {
+        "to": "+14155550123",
+        "message": "Your verification code is 483920. It expires in 5 minutes.",
+    },
+)
+
+print(result)
+```
+
+## Send with a template
+
+```python
+result = send_request(
+    "/api/messages",
+    {
+        "to": "+14155550123",
+        "templateId": "template_123",
+        "templateArgs": {
+            "customer_name": "Amina",
+            "order_id": "48291",
+        },
+    },
+)
+
+print(result)
+```
+
+## Create a template
+
+```python
+def create_template(jwt_token):
+    response = requests.post(
+        f"{API_BASE_URL}/api/templates",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {jwt_token}",
+        },
+        json={
+            "name": "Order Update",
+            "template_type": "custom",
+            "message_template": "Hi {{customer_name}}, your order {{order_id}} is on the way.",
+            "otp_length": 6,
+            "expires_in": 300,
+        },
+        timeout=30,
+    )
+
+    data = response.json()
+
+    if not response.ok:
+        raise RuntimeError(data.get("error", "Could not create template"))
+
+    return data
+```
+
+## Production tips
+
+- store API keys in environment variables or a secrets manager
+- set explicit request timeouts
+- use templates for repeated workflows
+- keep `test` and `live` credentials separate

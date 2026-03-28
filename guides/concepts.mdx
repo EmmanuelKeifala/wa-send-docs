@@ -1,0 +1,103 @@
+---
+title: "Concepts"
+description: "Understand the core concepts behind authentication, templates, environments, and message delivery in wa-send."
+---
+
+wa-send is intentionally simple, but a few core concepts make the platform easier to use well.
+
+## How to read the API reference
+
+The fastest way to move through wa-send is to map each concept to the exact endpoint that implements it.
+
+- account creation -> `POST /api/auth/signup`
+- sign-in -> `POST /api/auth/login`
+- session checks -> `GET /api/auth/session`
+- API key creation -> `POST /api/keys`
+- template management -> `GET /api/templates`, `POST /api/templates`, `PUT /api/templates/{id}`
+- message sending -> `POST /api/messages`
+
+Once you understand the concepts on this page, move directly into the matching endpoint pages in the [API Reference](../api-reference).
+
+## The account model
+
+Your account is where you manage the resources that shape your integration:
+
+- API keys for authenticated server requests
+- templates for reusable message content
+- profile settings for account-level configuration
+
+## Two authentication models
+
+wa-send uses two kinds of credentials:
+
+- `Authorization: Bearer <jwt>` for signed-in, account-scoped actions
+- `x-api-key: <api-key>` for server-side message submission
+
+In practice, teams usually sign in once to create templates and keys, then use API keys in production systems.
+
+Relevant endpoints:
+
+- `POST /api/auth/login`
+- `GET /api/auth/session`
+- `POST /api/keys`
+
+## Direct messages vs templates
+
+You can send messages in two ways:
+
+- direct messages when the copy is assembled in your application
+- templates when the message structure should be reusable and centrally managed
+
+Direct messages are useful for simple flows. Templates are better when you want consistency across products, teams, or environments.
+
+Relevant endpoints:
+
+- `POST /api/messages`
+- `GET /api/templates`
+- `POST /api/templates`
+
+## Environments
+
+API keys are created in one of two environments:
+
+- `test`
+- `live`
+
+This makes it easier to separate development traffic from production traffic while keeping the request format the same.
+
+Relevant endpoint:
+
+- `POST /api/keys`
+
+## Accepted vs delivered
+
+When wa-send returns a successful response for a message request, it is confirming that the platform accepted the request.
+
+That means:
+
+- the payload was valid
+- authentication passed
+- the message entered the platform for processing
+
+For most developers, this is the right contract: your application can continue without waiting on the full delivery lifecycle.
+
+Relevant endpoint:
+
+- `POST /api/messages`
+
+## A practical integration pattern
+
+Most teams follow this sequence:
+
+1. create an account
+2. create a `test` API key
+3. send direct messages to validate the flow
+4. move common copy into templates
+5. switch to a `live` key when ready to launch
+
+## Read next
+
+- start with [Quickstart](./quickstart)
+- review [Authentication](./authentication)
+- send requests with [Messaging](./messages)
+- open the [API Reference](../api-reference) and test the matching endpoints live

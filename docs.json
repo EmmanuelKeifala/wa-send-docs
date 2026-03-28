@@ -1,0 +1,173 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "wa-send Developer Docs",
+  "theme": "luma",
+  "description": "Premium developer docs for transactional WhatsApp messaging with wa-send.",
+  "colors": {
+    "primary": "#0f766e",
+    "light": "#5eead4",
+    "dark": "#134e4a"
+  },
+  "appearance": {
+    "default": "light"
+  },
+  "background": {
+    "decoration": "gradient",
+    "color": {
+      "light": "#f8faf7",
+      "dark": "#0f172a"
+    }
+  },
+  "fonts": {
+    "family": "Instrument Sans",
+    "weight": 450,
+    "heading": {
+      "family": "Fraunces",
+      "weight": 600
+    },
+    "body": {
+      "family": "Instrument Sans",
+      "weight": 450
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs",
+    "codeblocks": {
+      "theme": {
+        "light": "github-light",
+        "dark": "github-dark"
+      }
+    }
+  },
+  "api": {
+    "playground": {
+      "display": "interactive",
+      "proxy": false,
+      "credentials": false
+    },
+    "params": {
+      "expanded": "all"
+    },
+    "url": "full",
+    "examples": {
+      "languages": [
+        "curl",
+        "javascript",
+        "python",
+        "go"
+      ],
+      "defaults": "required",
+      "prefill": true,
+      "autogenerate": true
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Concepts",
+        "href": "/guides/concepts"
+      },
+      {
+        "label": "Quickstart",
+        "href": "/guides/quickstart"
+      },
+      {
+        "label": "API Reference",
+        "href": "/api-reference"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Read Quickstart",
+      "href": "/guides/quickstart"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "icon": "book-open",
+        "groups": [
+          {
+            "group": "Start Here",
+            "pages": [
+              "index",
+              "guides/concepts",
+              "guides/quickstart"
+            ]
+          },
+          {
+            "group": "Build & Operate",
+            "pages": [
+              "guides/authentication",
+              "guides/messages",
+              "guides/javascript",
+              "guides/python",
+              "guides/go"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "icon": "square-terminal",
+        "groups": [
+          {
+            "group": "REST API",
+            "root": "api-reference",
+            "openapi": {
+              "source": "openapi/wa-send.openapi.yaml",
+              "directory": "api"
+            },
+            "pages": [
+              "api-reference",
+              "GET /health",
+              {
+                "group": "Auth",
+                "pages": [
+                  "POST /api/auth/signup",
+                  "POST /api/auth/login",
+                  "POST /api/auth/logout",
+                  "GET /api/auth/session"
+                ]
+              },
+              {
+                "group": "Messaging",
+                "pages": [
+                  "POST /api/messages"
+                ]
+              },
+              {
+                "group": "Templates",
+                "pages": [
+                  "GET /api/templates",
+                  "POST /api/templates",
+                  "PUT /api/templates/{id}",
+                  "DELETE /api/templates/{id}"
+                ]
+              },
+              {
+                "group": "API Keys",
+                "pages": [
+                  "GET /api/keys",
+                  "POST /api/keys",
+                  "DELETE /api/keys/{id}"
+                ]
+              },
+              {
+                "group": "Profiles",
+                "pages": [
+                  "GET /api/profiles",
+                  "PUT /api/profiles"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+---
+title: "Go"
+description: "Integrate wa-send from Go services and backend systems."
+---
+
+This guide shows how to send wa-send API requests from Go using the standard library.
+
+## Create a small client
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+    "time"
+)
+
+var (
+    apiBaseURL = getenv("WASEND_BASE_URL", "http://localhost:3001")
+    apiKey     = os.Getenv("WASEND_API_KEY")
+)
+
+func getenv(key, fallback string) string {
+    if value := os.Getenv(key); value != "" {
+        return value
+    }
+    return fallback
+}
+
+func sendRequest(path string, payload any) ([]byte, error) {
+    body, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+    req, err := http.NewRequest(http.MethodPost, apiBaseURL+path, bytes.NewBuffer(body))
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("x-api-key", apiKey)
+
+    client := &http.Client{Timeout: 30 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+
+    if resp.StatusCode >= 400 {
+        return nil, fmt.Errorf("request failed: %s", string(responseBody))
+    }
+
+    return responseBody, nil
+}
+```
+
+## Send a direct message
+
+```go
+func main() {
+    result, err := sendRequest("/api/messages", map[string]any{
+        "to":      "+14155550123",
+        "message": "Your verification code is 483920. It expires in 5 minutes.",
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println(string(result))
+}
+```
+
+## Send with a template
+
+```go
+result, err := sendRequest("/api/messages", map[string]any{
+    "to":         "+14155550123",
+    "templateId": "template_123",
+    "templateArgs": map[string]string{
+        "customer_name": "Amina",
+        "order_id":      "48291",
+    },
+})
+if err != nil {
+    panic(err)
+}
+
+fmt.Println(string(result))
+```
+
+## Create a template
+
+Use a bearer token for account-scoped routes such as template management.
+
+```go
+func createTemplate(jwt string) ([]byte, error) {
+    payload := map[string]any{
+        "name":             "Order Update",
+        "template_type":    "custom",
+        "message_template": "Hi {{customer_name}}, your order {{order_id}} is on the way.",
+        "otp_length":       6,
+        "expires_in":       300,
+    }
+
+    body, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+    req, err := http.NewRequest(http.MethodPost, apiBaseURL+"/api/templates", bytes.NewBuffer(body))
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("Authorization", "Bearer "+jwt)
+
+    client := &http.Client{Timeout: 30 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    return io.ReadAll(resp.Body)
+}
+```
+
+## Production tips
+
+- create a reusable HTTP client with timeouts
+- treat API keys as secrets and inject them at runtime
+- use templates for stable notification patterns
+- separate `test` and `live` credentials cleanly
