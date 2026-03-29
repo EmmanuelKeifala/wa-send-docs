@@ -47,6 +47,12 @@
       }
     }
   },
+  "contextual": {
+    "display": "header",
+    "options": [
+      "copy"
+    ]
+  },
   "api": {
     "playground": {
       "display": "interactive",
