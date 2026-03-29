@@ -6,13 +6,11 @@ info:
     Public API for authenticating users, managing templates and API keys,
     updating profiles, and sending transactional WhatsApp messages.
 servers:
-  - url: http://localhost:3001
-    description: Local development
+  - url: https://api.wa-send.dev
+    description: Production API
 tags:
   - name: Health
     description: Service health and readiness
-  - name: Auth
-    description: User signup, login, logout, and session verification
   - name: Messages
     description: Send direct and template-based WhatsApp messages
   - name: Templates
@@ -36,10 +34,31 @@ components:
   schemas:
     Error:
       type: object
+      description: |
+        Standard backend error envelope.
+
+        Handle failures using the HTTP status code together with the machine-readable `code` and the human-readable `error` message.
       properties:
+        code:
+          type: string
+          example: INVALID_API_KEY
         error:
           type: string
-          example: Invalid email or password
+          example: Invalid API Key
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                nullable: true
+                example: to
+              message:
+                type: string
+                example: Invalid phone number format
+            required: [field, message]
+      required: [code, error]
     HealthResponse:
       type: object
       properties:
@@ -119,7 +138,7 @@ components:
         to:
           type: string
           pattern: ^\+?[1-9]\d{1,14}$
-          example: "+14155550123"
+          example: "+23276123456"
         message:
           type: string
           example: Your verification code is 483920. It expires in 5 minutes.
@@ -139,18 +158,18 @@ components:
       examples:
         otp_message:
           value:
-            to: "+14155550123"
+            to: "+23276123456"
             message: Your verification code is 483920. It expires in 5 minutes.
         order_update:
           value:
-            to: "+14155550123"
+            to: "+23276123456"
             templateId: template_order_update
             templateArgs:
               customer_name: Amina
               order_id: "48291"
         security_alert:
           value:
-            to: "+14155550123"
+            to: "+23276123456"
             message: We detected a new sign-in to your account. If this was not you, reset your password now.
     QueuedMessageResponse:
       type: object
@@ -178,7 +197,7 @@ components:
           type: string
         template_type:
           type: string
-          enum: [otp, verification, custom]
+          enum: [otp, verification, custom, login, password_reset, transaction]
         message_template:
           type: string
         otp_length:
@@ -208,7 +227,7 @@ components:
           maxLength: 100
         template_type:
           type: string
-          enum: [otp, verification, custom]
+          enum: [otp, verification, custom, login, password_reset, transaction]
         message_template:
           type: string
           minLength: 1
@@ -241,6 +260,14 @@ components:
             name: Order Update
             template_type: custom
             message_template: Hi {{customer_name}}, your order {{order_id}} is now out for delivery.
+            otp_length: 6
+            expires_in: 300
+            is_default: false
+        password_reset_template:
+          value:
+            name: Password Reset
+            template_type: password_reset
+            message_template: Your password reset code is {{otp}}. It expires in {{expires}} minutes.
             otp_length: 6
             expires_in: 300
             is_default: false
@@ -363,185 +390,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
-  /api/auth/signup:
-    post:
-      tags: [Auth]
-      summary: Create an account
-      description: Register a new wa-send user and return a JWT session.
-      x-mint:
-        metadata:
-          title: Create an account
-        content: |
-          This page explains how to create a wa-send account.
-
-          Signup is the first step for teams that need to issue API keys, manage reusable templates, and configure account-scoped resources.
-
-          ## When to use this endpoint
-
-          Use signup when creating a new developer or workspace owner account.
-
-          ## Common patterns
-
-          - first-time onboarding flows
-          - self-serve product sign-up
-          - developer account creation before generating API keys
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SignupRequest'
-            examples:
-              developer_signup:
-                summary: Create a new developer account
-                value:
-                  email: dev@example.com
-                  password: strong-password
-      responses:
-        '201':
-          description: Account created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Duplicate email
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/auth/login:
-    post:
-      tags: [Auth]
-      summary: Sign in
-      description: Authenticate an existing user and return a JWT session.
-      x-mint:
-        metadata:
-          title: Sign in
-        content: |
-          This page explains how to exchange account credentials for a bearer token.
-
-          Most teams use the returned JWT for account management, then create API keys for application and server traffic.
-
-          ## When to use this endpoint
-
-          Use login when you need a bearer token for account-scoped actions like creating templates or issuing API keys.
-
-          ## Common patterns
-
-          - dashboard sign-in flows
-          - settings or account management sessions
-          - token retrieval before calling account-scoped routes
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-            examples:
-              account_login:
-                summary: Sign in with email and password
-                value:
-                  email: dev@example.com
-                  password: strong-password
-      responses:
-        '200':
-          description: Logged in successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Missing credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Invalid email or password
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/auth/logout:
-    post:
-      tags: [Auth]
-      summary: Sign out
-      description: End the current authenticated session on the client.
-      x-mint:
-        metadata:
-          title: Sign out
-        content: |
-          This page covers how to end a signed-in session.
-
-          Logout is mainly useful for browser-based or account-management clients that want an explicit session end point.
-
-          ## When to use this endpoint
-
-          Use logout when a signed-in user explicitly ends a session.
-
-          ## Common patterns
-
-          - sign-out buttons in account UIs
-          - ending authenticated sessions in admin tools
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogoutResponse'
-        '401':
-          description: Missing or invalid bearer token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/auth/session:
-    get:
-      tags: [Auth]
-      summary: Verify session
-      description: Validate a JWT and return the current user session.
-      x-mint:
-        metadata:
-          title: Verify session
-        content: |
-          This page explains how to verify that a bearer token is still valid.
-
-          Use session verification before loading account-scoped resources such as templates, keys, or profile information.
-
-          ## When to use this endpoint
-
-          Use this endpoint when your client needs to restore or validate a signed-in session.
-
-          ## Common patterns
-
-          - app boot session restoration
-          - protected settings pages
-          - token validation before showing account data
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Session is valid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Missing or invalid bearer token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/messages:
     post:
       tags: [Messages]
@@ -578,12 +426,12 @@ paths:
               otp_message:
                 summary: Send a verification code
                 value:
-                  to: "+14155550123"
+                  to: "+23276123456"
                   message: Your verification code is 483920. It expires in 5 minutes.
               order_update:
                 summary: Send a template-based order update
                 value:
-                  to: "+14155550123"
+                  to: "+23276123456"
                   templateId: template_order_update
                   templateArgs:
                     customer_name: Amina
@@ -591,7 +439,7 @@ paths:
               security_alert:
                 summary: Send an account security alert
                 value:
-                  to: "+14155550123"
+                  to: "+23276123456"
                   message: We detected a new sign-in to your account. If this was not you, reset your password now.
       responses:
         '202':
@@ -601,19 +449,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueuedMessageResponse'
         '400':
-          description: Validation error
+          description: Validation error (`VALIDATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Missing or invalid authentication
+          description: Missing or invalid authentication (`AUTH_REQUIRED`, `INVALID_API_KEY`, `API_KEY_INACTIVE`, `INVALID_TOKEN`, `USER_NOT_FOUND`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Template not found
+          description: Template not found (`TEMPLATE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`TEMPLATE_RESOLUTION_FAILED`, `AUTHENTICATION_ERROR`, `INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -652,7 +506,13 @@ paths:
                 items:
                   $ref: '#/components/schemas/Template'
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -705,6 +565,15 @@ paths:
                   otp_length: 6
                   expires_in: 300
                   is_default: false
+              password_reset:
+                summary: Create a password reset template
+                value:
+                  name: Password Reset
+                  template_type: password_reset
+                  message_template: Your password reset code is {{otp}}. It expires in {{expires}} minutes.
+                  otp_length: 6
+                  expires_in: 300
+                  is_default: false
       responses:
         '201':
           description: Template created
@@ -713,13 +582,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Template'
         '400':
-          description: Validation error
+          description: Validation error (`VALIDATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -779,19 +654,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/Template'
         '400':
-          description: Validation error
+          description: Validation error (`VALIDATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Template not found
+          description: Template not found (`TEMPLATE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -830,13 +711,75 @@ paths:
         '204':
           description: Template deleted
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Template not found
+          description: Template not found (`TEMPLATE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/templates/{id}/set-default:
+    put:
+      tags: [Templates]
+      summary: Set default template
+      description: Mark one of the current user's templates as the default template.
+      x-mint:
+        metadata:
+          title: Set default template
+        content: |
+          This endpoint sets a template as the default for the current account.
+
+          The backend also clears the `is_default` flag from any other template owned by the same user.
+
+          ## When to use this endpoint
+
+          Use this endpoint when your account should have a single preferred template for a common flow.
+
+          ## Common patterns
+
+          - choosing a primary verification template
+          - switching the default after a copy refresh
+          - cleaning up multiple competing defaults
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Default template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '401':
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found (`TEMPLATE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -876,6 +819,12 @@ paths:
                   $ref: '#/components/schemas/ApiKey'
         '401':
           description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:
@@ -939,6 +888,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/keys/{id}:
     delete:
       tags: [API Keys]
@@ -974,13 +929,19 @@ paths:
         '204':
           description: API key deleted
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: API key not found
+          description: API key not found (`API_KEY_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -1017,13 +978,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Profile not found
+          description: Profile not found (`PROFILE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:
@@ -1071,19 +1038,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
         '400':
-          description: Validation error
+          description: Validation error (`VALIDATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Profile not found
+          description: Profile not found (`PROFILE_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Profiles]
+      summary: Delete account
+      description: Delete the current user profile and owned API keys and templates.
+      x-mint:
+        metadata:
+          title: Delete account
+        content: |
+          This endpoint deletes the current account and the resources it owns.
+
+          The backend removes the user's API keys, templates, and profile in a single transaction.
+
+          ## When to use this endpoint
+
+          Use this endpoint when an account should be permanently removed.
+
+          ## Common patterns
+
+          - account closure workflows
+          - test data teardown
+          - internal admin cleanup tools
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Account deleted
+        '401':
+          description: Missing or invalid bearer token (`AUTH_REQUIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND`, `AUTHENTICATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error (`INTERNAL_SERVER_ERROR`)
           content:
             application/json:
               schema:

@@ -9,6 +9,14 @@ wa-send helps teams deliver verification codes, alerts, reminders, and account u
 
 Whether you are replacing fragile SMS flows or adding a higher-trust notification channel, wa-send keeps the path from first API call to production rollout short and predictable.
 
+## Start here
+
+- follow the [Quickstart](./guides/quickstart)
+- review [Use Cases](./guides/use-cases)
+- understand [Authentication](./guides/authentication)
+- send your first request with [Messaging](./guides/messages)
+- inspect every route in the [API Reference](./api-reference)
+
 <Card title="Start building" icon="arrow-right" href="/guides/quickstart">
   Go from account creation to first WhatsApp message in minutes.
 </Card>
@@ -27,6 +35,20 @@ Whether you are replacing fragile SMS flows or adding a higher-trust notificatio
   </Card>
   <Card title="Interactive API reference" icon="square-terminal">
     Explore the full API with live request testing directly from the docs.
+  </Card>
+</CardGroup>
+
+## Integration patterns
+
+<CardGroup cols={3}>
+  <Card title="User Registration" icon="user-plus" href="/guides/use-cases">
+    Send verification or welcome codes during signup flows.
+  </Card>
+  <Card title="Password Reset" icon="shield-alert" href="/guides/use-cases">
+    Deliver short-lived recovery codes with clearer trust signals.
+  </Card>
+  <Card title="Two-Factor Auth" icon="lock-keyhole" href="/guides/use-cases">
+    Standardize 2FA messages with templates and controlled defaults.
   </Card>
 </CardGroup>
 
@@ -60,10 +82,9 @@ Whether you are replacing fragile SMS flows or adding a higher-trust notificatio
 2. Send a direct message or a template-based request.
 3. Move into production using the same API shape.
 
-## Start here
+## Developer workflow
 
-- follow the [Quickstart](./guides/quickstart)
-- understand the model in [Concepts](./guides/concepts)
-- learn the auth model in [Authentication](./guides/authentication)
-- send your first request with [Messaging](./guides/messages)
-- review every endpoint in the [API Reference](./api-reference)
+1. Use bearer auth to create templates and issue keys.
+2. Use API keys for backend message sends.
+3. Treat `202 Accepted` as queued for processing.
+4. Handle `400`, `401`, `404`, and `500` responses explicitly.

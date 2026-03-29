@@ -5,6 +5,14 @@ description: "Integrate wa-send from Node.js or modern JavaScript runtimes."
 
 This guide shows how to call wa-send from Node.js or any JavaScript runtime with `fetch` support.
 
+## On this page
+
+- set up your client
+- send direct messages
+- send template messages
+- create templates with bearer auth
+- production tips
+
 ## What you will need
 
 - your wa-send API key
@@ -14,7 +22,7 @@ This guide shows how to call wa-send from Node.js or any JavaScript runtime with
 ## Set up your client
 
 ```js
-const API_BASE_URL = process.env.WASEND_BASE_URL || 'http://localhost:3001'
+const API_BASE_URL = process.env.WASEND_BASE_URL || 'https://api.wa-send.dev'
 const API_KEY = process.env.WASEND_API_KEY
 
 async function sendRequest(path, body) {
@@ -42,8 +50,8 @@ async function sendRequest(path, body) {
 ```js
 async function sendOtp() {
   const result = await sendRequest('/api/messages', {
-    to: '+14155550123',
-    message: 'Your verification code is 483920. It expires in 5 minutes.',
+    to: '+23276123456',
+    message: 'Your verification code is 483920. It expires in 5 minutes. Do not share this code.',
   })
 
   console.log(result)
@@ -54,14 +62,16 @@ sendOtp().catch(console.error)
 
 ## Send with a template
 
+Templates are the recommended option for recurring product flows.
+
 ```js
 async function sendTemplateMessage() {
   const result = await sendRequest('/api/messages', {
-    to: '+14155550123',
-    templateId: 'template_123',
+    to: '+23276123456',
+    templateId: 'template-verification-id',
     templateArgs: {
-      customer_name: 'Amina',
-      order_id: '48291',
+      otp: '483920',
+      expires: '5',
     },
   })
 
@@ -108,3 +118,4 @@ async function createTemplate(jwt) {
 - retry only when failures are transient
 - use templates for repeated notification flows
 - separate `test` and `live` keys by environment
+- treat `202` as queued, not final delivery confirmation

@@ -1,20 +1,63 @@
 ---
 title: "Messaging"
-description: "Send direct or template-based WhatsApp messages through wa-send."
+description: "Send direct or template-based WhatsApp messages through the waotp backend."
 ---
 
-wa-send accepts direct and template-based message requests through a single API.
+The core integration route is `POST /api/messages`.
 
-For most teams, the integration model is straightforward: authenticate once, submit payloads, and let the platform handle delivery.
+It accepts two payload modes:
+
+- direct text messages with `message`
+- template-based messages with `templateId` and `templateArgs`
+
+## On this page
+
+- authentication
+- request body parameters
+- direct message examples
+- template examples
+- template management routes
+- error codes
+- best practices
+
+For most teams, the integration flow is:
+
+1. Create an API key with `POST /api/keys`.
+2. Create reusable templates with `POST /api/templates` if needed.
+3. Send messages with `POST /api/messages`.
+
+## Authentication
+
+`POST /api/messages` supports either:
+
+- `x-api-key: <api-key>`
+- `Authorization: Bearer <jwt>`
+
+API keys are the better option for backend-to-backend production integrations.
+
+## Request body parameters
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `to` | string | Yes | E.164-like number matching `^\+?[1-9]\d{1,14}$` |
+| `message` | string | Conditionally | Use for direct sends only |
+| `templateId` | string | Conditionally | Use for template sends only |
+| `templateArgs` | object | Conditionally | Required when `templateId` is provided |
+
+Rules enforced by the backend:
+
+- `to` must be between 10 and 15 characters and match the phone regex
+- send `message` or `templateId`, but never both
+- when `templateId` is present, `templateArgs` must also be present
 
 ## Send a direct message
 
 ```bash
-curl -X POST http://localhost:3001/api/messages \
+curl -X POST https://api.wa-send.dev/api/messages \
   -H "x-api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "+12345678901",
+    "to": "+23276123456",
     "message": "Your verification code is 483920"
   }'
 ```
@@ -29,16 +72,36 @@ Successful requests return `202 Accepted`:
 }
 ```
 
+## Direct message examples
+
+### OTP message
+
+```json
+{
+  "to": "+23276123456",
+  "message": "Your verification code is 483920. It expires in 5 minutes. Do not share this code."
+}
+```
+
+### Security alert
+
+```json
+{
+  "to": "+23276123456",
+  "message": "We detected a new sign-in to your account. If this was not you, reset your password now."
+}
+```
+
 ## Send with a template
 
 Templates let you centralize message copy and inject dynamic values at request time.
 
 ```bash
-curl -X POST http://localhost:3001/api/messages \
+curl -X POST https://api.wa-send.dev/api/messages \
   -H "x-api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "+12345678901",
+    "to": "+23276123456",
     "templateId": "template-uuid",
     "templateArgs": {
       "otp": "483920",
@@ -55,21 +118,53 @@ Your verification code is {{otp}}. Valid for {{expires}} minutes.
 
 wa-send will resolve it into the final message before queueing delivery.
 
-## Validation rules
+## Template examples
 
-- `to` must be a valid E.164-like number
-- provide either `message` or `templateId`
-- do not provide both in the same request
-- `templateArgs` is required when using `templateId`
+### Verification template
 
-## Managing templates
+```text
+Your verification code is {{otp}}. Valid for {{expires}} minutes. Do not share this code.
+```
 
-Templates are managed over authenticated endpoints.
+### Order update template
 
-### Create a template
+```text
+Hi {{customer_name}}, your order {{order_id}} is now out for delivery.
+```
+
+## Template placeholders
+
+Templates are stored with placeholders like `{{otp}}` or `{{expires}}`.
+
+At send time, the backend replaces every matching placeholder with the value from `templateArgs`.
+
+If the template does not exist for the authenticated account, the API returns `404 Template not found`.
+
+## Template management routes
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/templates` | List your templates |
+| `POST /api/templates` | Create a template |
+| `PUT /api/templates/{id}` | Update a template |
+| `PUT /api/templates/{id}/set-default` | Mark a template as default |
+| `DELETE /api/templates/{id}` | Delete a template |
+
+## Create a template
+
+The request body supports these fields:
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `name` | string | Yes | 1 to 100 characters |
+| `template_type` | string | Yes | `otp`, `verification`, `custom`, `login`, `password_reset`, or `transaction` |
+| `message_template` | string | Yes | 1 to 1000 characters |
+| `otp_length` | integer | No | 4 to 8, default `6` |
+| `expires_in` | integer | No | 60 to 3600 seconds, default `300` |
+| `is_default` | boolean | No | Whether the template should be default |
 
 ```bash
-curl -X POST http://localhost:3001/api/templates \
+curl -X POST https://api.wa-send.dev/api/templates \
   -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -81,17 +176,17 @@ curl -X POST http://localhost:3001/api/templates \
   }'
 ```
 
-### List templates
+## List templates
 
 ```bash
-curl http://localhost:3001/api/templates \
+curl https://api.wa-send.dev/api/templates \
   -H "Authorization: Bearer <jwt>"
 ```
 
-### Update a template
+## Update a template
 
 ```bash
-curl -X PUT http://localhost:3001/api/templates/<template-id> \
+curl -X PUT https://api.wa-send.dev/api/templates/<template-id> \
   -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -104,12 +199,58 @@ curl -X PUT http://localhost:3001/api/templates/<template-id> \
   }'
 ```
 
-### Delete a template
+## Set a default template
 
 ```bash
-curl -X DELETE http://localhost:3001/api/templates/<template-id> \
+curl -X PUT https://api.wa-send.dev/api/templates/<template-id>/set-default \
   -H "Authorization: Bearer <jwt>"
 ```
+
+## Delete a template
+
+```bash
+curl -X DELETE https://api.wa-send.dev/api/templates/<template-id> \
+  -H "Authorization: Bearer <jwt>"
+```
+
+## Common error codes
+
+The backend returns machine-readable errors in this shape:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "error": "Invalid phone number format",
+  "details": [
+    {
+      "field": "to",
+      "message": "Invalid phone number format"
+    }
+  ]
+}
+```
+
+For non-validation failures, the API returns `code` and `error` without `details`.
+
+| Canonical code | Status | When it happens | Actual backend message |
+| --- | --- | --- | --- |
+| `VALIDATION_ERROR` | `400` | Invalid message or template body | `Provide either "message" or "templateId", but not both` |
+| `AUTH_REQUIRED` | `401` | Missing API key and missing bearer token | `Authentication required. Please provide x-api-key header or Bearer token.` |
+| `INVALID_API_KEY` | `401` | API key does not match a stored credential | `Invalid API Key` |
+| `API_KEY_INACTIVE` | `401` | API key exists but is inactive | `API Key is inactive` |
+| `INVALID_TOKEN` | `401` | Bearer token is invalid or expired | `Invalid or expired token. Please login again.` |
+| `USER_NOT_FOUND` | `401` | Bearer token is valid but no matching profile exists | `User not found. Please login again.` |
+| `TEMPLATE_NOT_FOUND` | `404` | Template ID does not exist for the current account | `Template not found` |
+| `TEMPLATE_RESOLUTION_FAILED` | `500` | Template lookup or interpolation failed | `Failed to resolve template` |
+| `INTERNAL_SERVER_ERROR` | `500` | Queueing or route-level processing failed | `Internal server error` |
+
+## Best practices
+
+- use templates for repeated flows like signup, recovery, and 2FA
+- include explicit expiry windows in OTP-style messages
+- never send both `message` and `templateId`
+- treat `202` as acceptance into the queue, not guaranteed final delivery
+- handle `401` and `404` separately so auth issues and missing templates are easy to diagnose
 
 ## Delivery model
 

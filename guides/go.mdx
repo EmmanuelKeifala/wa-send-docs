@@ -5,6 +5,14 @@ description: "Integrate wa-send from Go services and backend systems."
 
 This guide shows how to send wa-send API requests from Go using the standard library.
 
+## On this page
+
+- create a small client
+- send direct messages
+- send template messages
+- create templates with bearer auth
+- production tips
+
 ## Create a small client
 
 ```go
@@ -21,7 +29,7 @@ import (
 )
 
 var (
-    apiBaseURL = getenv("WASEND_BASE_URL", "http://localhost:3001")
+    apiBaseURL = getenv("WASEND_BASE_URL", "https://api.wa-send.dev")
     apiKey     = os.Getenv("WASEND_API_KEY")
 )
 
@@ -71,8 +79,8 @@ func sendRequest(path string, payload any) ([]byte, error) {
 ```go
 func main() {
     result, err := sendRequest("/api/messages", map[string]any{
-        "to":      "+14155550123",
-        "message": "Your verification code is 483920. It expires in 5 minutes.",
+        "to":      "+23276123456",
+        "message": "Your verification code is 483920. It expires in 5 minutes. Do not share this code.",
     })
     if err != nil {
         panic(err)
@@ -84,13 +92,15 @@ func main() {
 
 ## Send with a template
 
+Templates are the recommended option for recurring product flows.
+
 ```go
 result, err := sendRequest("/api/messages", map[string]any{
-    "to":         "+14155550123",
-    "templateId": "template_123",
+    "to":         "+23276123456",
+    "templateId": "template-verification-id",
     "templateArgs": map[string]string{
-        "customer_name": "Amina",
-        "order_id":      "48291",
+        "otp":     "483920",
+        "expires": "5",
     },
 })
 if err != nil {
@@ -144,3 +154,4 @@ func createTemplate(jwt string) ([]byte, error) {
 - treat API keys as secrets and inject them at runtime
 - use templates for stable notification patterns
 - separate `test` and `live` credentials cleanly
+- treat `202` as queued, not final delivery confirmation

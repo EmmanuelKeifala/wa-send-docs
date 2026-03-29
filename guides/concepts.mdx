@@ -5,13 +5,19 @@ description: "Understand the core concepts behind authentication, templates, env
 
 wa-send is intentionally simple, but a few core concepts make the platform easier to use well.
 
+## On this page
+
+- account model
+- auth model
+- direct messages vs templates
+- environments
+- accepted vs delivered
+- practical integration pattern
+
 ## How to read the API reference
 
 The fastest way to move through wa-send is to map each concept to the exact endpoint that implements it.
 
-- account creation -> `POST /api/auth/signup`
-- sign-in -> `POST /api/auth/login`
-- session checks -> `GET /api/auth/session`
 - API key creation -> `POST /api/keys`
 - template management -> `GET /api/templates`, `POST /api/templates`, `PUT /api/templates/{id}`
 - message sending -> `POST /api/messages`
@@ -37,8 +43,6 @@ In practice, teams usually sign in once to create templates and keys, then use A
 
 Relevant endpoints:
 
-- `POST /api/auth/login`
-- `GET /api/auth/session`
 - `POST /api/keys`
 
 ## Direct messages vs templates
@@ -49,6 +53,11 @@ You can send messages in two ways:
 - templates when the message structure should be reusable and centrally managed
 
 Direct messages are useful for simple flows. Templates are better when you want consistency across products, teams, or environments.
+
+Recommended default:
+
+- use templates for recurring product flows
+- use direct messages for one-off or early-stage internal integrations
 
 Relevant endpoints:
 
@@ -95,9 +104,12 @@ Most teams follow this sequence:
 4. move common copy into templates
 5. switch to a `live` key when ready to launch
 
+This is the same pattern used by the nicer published docs site, but here it stays aligned to the real backend routes and request validation rules.
+
 ## Read next
 
 - start with [Quickstart](./quickstart)
+- review common [Use Cases](./use-cases)
 - review [Authentication](./authentication)
 - send requests with [Messaging](./messages)
 - open the [API Reference](../api-reference) and test the matching endpoints live

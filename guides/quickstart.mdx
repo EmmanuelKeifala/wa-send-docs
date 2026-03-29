@@ -5,30 +5,52 @@ description: "Create credentials, authenticate, and send your first WhatsApp mes
 
 This guide walks through the fastest path to a working integration.
 
+## On this page
+
+- access the dashboard
+- create an API key
+- send your first message
+- move to templates
+- next steps
+
+The backend routes used in this flow are:
+
+- `POST /api/keys`
+- `POST /api/messages`
+
 ## Before you begin
 
 You will need:
 
-- a wa-send account
+- access to the wa-send website dashboard
 - an API key
 - a phone number in E.164 format
 
-## 1. Create an account
+## 1. Access the dashboard
 
-Create an account in wa-send and sign in.
+Create your account and sign in on the wa-send website.
 
-Once signed in, create an API key for your environment.
+Once signed in, create or copy a bearer token from the dashboard context and create an API key for your environment.
+
+```bash
+curl -X POST https://api.wa-send.dev/api/keys \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Local Development","environment":"test"}'
+```
+
+Store `full_key` immediately. The backend only returns it once.
 
 ## 2. Send your first message
 
 Use your API key to make a request:
 
 ```bash
-curl -X POST http://localhost:3001/api/messages \
+curl -X POST https://api.wa-send.dev/api/messages \
   -H "x-api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "+12345678901",
+    "to": "+23276123456",
     "message": "Your verification code is 483920"
   }'
 ```
@@ -43,22 +65,30 @@ If the request is accepted, you will receive:
 }
 ```
 
+If you receive `202 Accepted`, the message was accepted and queued for processing.
+
 ## 3. Use a template
 
 Once you have a template ID, you can send dynamic content without rebuilding message copy on every request:
 
 ```bash
-curl -X POST http://localhost:3001/api/messages \
+curl -X POST https://api.wa-send.dev/api/messages \
   -H "x-api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "+12345678901",
+    "to": "+23276123456",
     "templateId": "template-uuid",
     "templateArgs": {
       "otp": "483920",
       "expires": "5"
     }
   }'
+```
+
+Recommended template body:
+
+```text
+Your verification code is {{otp}}. It expires in {{expires}} minutes. Do not share this code.
 ```
 
 ## 4. Explore interactively
@@ -69,8 +99,18 @@ Use the `API Reference` tab to:
 - test endpoints live from the docs
 - try bearer token and API key auth flows
 
+## Common errors
+
+| Status | Meaning |
+| --- | --- |
+| `400` | your request body is invalid |
+| `401` | your API key or bearer token is missing or invalid |
+| `404` | the referenced template was not found |
+| `500` | the backend could not complete the request |
+
 ## Next steps
 
+- review production-ready flows in [Use Cases](./use-cases)
 - continue with [Authentication](./authentication)
 - learn how message submission works in [Messaging](./messages)
 - review the full [API Reference](../api-reference)

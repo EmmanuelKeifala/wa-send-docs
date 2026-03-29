@@ -2,6 +2,11 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "wa-send Developer Docs",
   "theme": "luma",
+  "logo": {
+    "light": "/icon.png",
+    "dark": "/icon.png"
+  },
+  "favicon": "/icon.png",
   "description": "Premium developer docs for transactional WhatsApp messaging with wa-send.",
   "colors": {
     "primary": "#0f766e",
@@ -71,6 +76,10 @@
         "href": "/guides/concepts"
       },
       {
+        "label": "Use Cases",
+        "href": "/guides/use-cases"
+      },
+      {
         "label": "Quickstart",
         "href": "/guides/quickstart"
       },
@@ -96,6 +105,7 @@
             "pages": [
               "index",
               "guides/concepts",
+              "guides/use-cases",
               "guides/quickstart"
             ]
           },
@@ -126,15 +136,6 @@
               "api-reference",
               "GET /health",
               {
-                "group": "Auth",
-                "pages": [
-                  "POST /api/auth/signup",
-                  "POST /api/auth/login",
-                  "POST /api/auth/logout",
-                  "GET /api/auth/session"
-                ]
-              },
-              {
                 "group": "Messaging",
                 "pages": [
                   "POST /api/messages"
@@ -146,6 +147,7 @@
                   "GET /api/templates",
                   "POST /api/templates",
                   "PUT /api/templates/{id}",
+                  "PUT /api/templates/{id}/set-default",
                   "DELETE /api/templates/{id}"
                 ]
               },
@@ -161,7 +163,8 @@
                 "group": "Profiles",
                 "pages": [
                   "GET /api/profiles",
-                  "PUT /api/profiles"
+                  "PUT /api/profiles",
+                  "DELETE /api/profiles"
                 ]
               }
             ]

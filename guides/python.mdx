@@ -5,6 +5,15 @@ description: "Integrate wa-send from Python services, workers, and backends."
 
 This guide shows how to call wa-send from Python using the `requests` library.
 
+## On this page
+
+- install requests
+- configure your client
+- send direct messages
+- send template messages
+- create templates with bearer auth
+- production tips
+
 ## Install requests
 
 ```bash
@@ -17,7 +26,7 @@ pip install requests
 import os
 import requests
 
-API_BASE_URL = os.getenv("WASEND_BASE_URL", "http://localhost:3001")
+API_BASE_URL = os.getenv("WASEND_BASE_URL", "https://api.wa-send.dev")
 API_KEY = os.getenv("WASEND_API_KEY")
 
 
@@ -46,8 +55,8 @@ def send_request(path, payload):
 result = send_request(
     "/api/messages",
     {
-        "to": "+14155550123",
-        "message": "Your verification code is 483920. It expires in 5 minutes.",
+        "to": "+23276123456",
+        "message": "Your verification code is 483920. It expires in 5 minutes. Do not share this code.",
     },
 )
 
@@ -56,15 +65,17 @@ print(result)
 
 ## Send with a template
 
+Templates are the recommended option for recurring product flows.
+
 ```python
 result = send_request(
     "/api/messages",
     {
-        "to": "+14155550123",
-        "templateId": "template_123",
+        "to": "+23276123456",
+        "templateId": "template-verification-id",
         "templateArgs": {
-            "customer_name": "Amina",
-            "order_id": "48291",
+            "otp": "483920",
+            "expires": "5",
         },
     },
 )
@@ -106,3 +117,4 @@ def create_template(jwt_token):
 - set explicit request timeouts
 - use templates for repeated workflows
 - keep `test` and `live` credentials separate
+- treat `202` as queued, not final delivery confirmation

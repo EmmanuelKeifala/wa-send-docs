@@ -8,46 +8,38 @@ wa-send uses two complementary authentication models:
 - JWT bearer tokens for signed-in dashboard users
 - API keys for server-to-server message submission
 
+## On this page
+
+- user sessions
+- API keys
+- when to use each auth method
+- common auth errors
+
 ## User sessions
 
 Use session-based auth when managing account-scoped resources such as templates, API keys, or profile settings.
 
-### Create an account
-
-```bash
-curl -X POST http://localhost:3001/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email":"dev@example.com","password":"strong-password"}'
-```
-
-### Sign in
-
-```bash
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"dev@example.com","password":"strong-password"}'
-```
-
-Successful authentication returns a user object and an access token:
-
-```json
-{
-  "user": {
-    "id": "uuid",
-    "email": "dev@example.com",
-    "created_at": "2026-03-28T12:00:00.000Z"
-  },
-  "session": {
-    "access_token": "jwt-token"
-  }
-}
-```
+Create your account and sign in on the wa-send website, then use the resulting dashboard session for account-scoped API actions.
 
 Send that token on subsequent requests:
 
 ```http
 Authorization: Bearer <jwt>
 ```
+
+Routes that require bearer auth:
+
+- `GET /api/templates`
+- `POST /api/templates`
+- `PUT /api/templates/{id}`
+- `PUT /api/templates/{id}/set-default`
+- `DELETE /api/templates/{id}`
+- `GET /api/keys`
+- `POST /api/keys`
+- `DELETE /api/keys/{id}`
+- `GET /api/profiles`
+- `PUT /api/profiles`
+- `DELETE /api/profiles`
 
 ## API keys
 
@@ -56,7 +48,7 @@ API keys are the preferred choice for production applications, workers, and back
 Create a key in the dashboard or through the API:
 
 ```bash
-curl -X POST http://localhost:3001/api/keys \
+curl -X POST https://api.wa-send.dev/api/keys \
   -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{"name":"Production Worker","environment":"live"}'
@@ -69,6 +61,12 @@ Use the key like this:
 ```http
 x-api-key: waotp_live_xxx
 ```
+
+List or revoke keys with these routes:
+
+- `GET /api/keys`
+- `POST /api/keys`
+- `DELETE /api/keys/{id}`
 
 ## Test and live environments
 
@@ -84,9 +82,39 @@ This lets you separate development traffic from production traffic without chang
 - use JWTs for account-scoped actions such as templates, profile updates, and key management
 - use API keys for sending messages from your own systems
 
+## Recommended pattern
+
+1. Sign in once on the wa-send website.
+2. Create templates and API keys using the bearer token.
+3. Use API keys in application servers, workers, and background jobs.
+4. Keep dashboard or account-management traffic on bearer auth.
+
 ## Security defaults
 
 - API keys are stored as SHA-256 hashes
 - JWT sessions expire after `7d`
 - message submission accepts either a JWT or an API key
 - newly created API keys are only shown once
+
+## Common auth errors
+
+The backend returns machine-readable auth errors in this shape:
+
+```json
+{
+  "code": "INVALID_TOKEN",
+  "error": "Invalid or expired token. Please login again."
+}
+```
+
+| Canonical code | Status | Route type | Actual backend message |
+| --- | --- | --- | --- |
+| `AUTH_REQUIRED` | `401` | protected JWT routes | `Authentication required. Please provide a valid token.` |
+| `MESSAGE_AUTH_REQUIRED` | `401` | message send with no auth | `Authentication required. Please provide x-api-key header or Bearer token.` |
+| `INVALID_API_KEY` | `401` | invalid API key | `Invalid API Key` |
+| `API_KEY_INACTIVE` | `401` | inactive API key | `API Key is inactive` |
+| `INVALID_TOKEN` | `401` | invalid or expired bearer token | `Invalid or expired token. Please login again.` |
+| `USER_NOT_FOUND` | `401` | missing user record for valid token | `User not found. Please login again.` |
+| `AUTHENTICATION_ERROR` | `500` | auth middleware failure | `Authentication error` |
+
+These docs intentionally focus on integration auth only. Account signup and sign-in happen on the website, not through the public integration docs.
